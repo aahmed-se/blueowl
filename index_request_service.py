@@ -1,7 +1,5 @@
 from flask import Flask
 from flask import request
-# from app import routes
-
 import pulsar
 
 app = Flask(__name__)
@@ -12,10 +10,10 @@ cache_map = {}
 def handle_query():
 	url = request.args.get('pageid')
 	if url in cache_map.keys():
-		return "Already, Indexed!"
+		return "Already, Indexed!\n"
 	else:
 		cache_map[url] = "true"
-		return "Index Requested for url : " + url 
+		return "Index Requested for url : " + url + "\n"
 
 if __name__ == '__main__':
 	app.run(host='0.0.0.0', port=8081)
