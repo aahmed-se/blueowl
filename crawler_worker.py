@@ -2,15 +2,14 @@ from nltk import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 from nltk.tokenize import sent_tokenize, word_tokenize
-import redis
+from datetime import datetime
+from elasticsearch import Elasticsearch
+import requests
+from bs4 import BeautifulSoup as bs
+import pulsar
 
-redis_host = "localhost"
-redis_port = 6379
-redis_password = ""
- 
+es = Elasticsearch()
 ps = PorterStemmer()
-
-redis = redis.StrictRedis(host=redis_host, port=redis_port, password=redis_password, decode_responses=True)
 
 def get_tokes(text):
 	tokens = word_tokenize(text)
@@ -26,6 +25,37 @@ def stem_words(tokens):
 	return stemmed_words
 
 if __name__=="__main__":
-	words = stem_words(filter_stop_sequences(get_tokes("I am a fox amsterdam game games 123")))
-	redis.pfadd(words)
-	print(stem_words(filter_stop_sequences(get_tokes("I am a fox amsterdam game games 123"))))
+
+	client = pulsar.Client('pulsar://localhost:6650')
+
+	consumer = client.subscribe('urls', 'woker-reader-1')
+
+	while True:
+		msg = consumer.receive()
+		print("Received message '{}' id='{}'".format(msg.data(), msg.message_id()))
+		url = msg.data()
+		r = requests.get(url)
+	
+		words = stem_words(filter_stop_sequences(get_tokes(r.text)))
+		text = ' '.join(words)
+		doc = {
+			'text': text,
+			'timestamp': datetime.now(),
+		}
+		res = es.index(index="word-cloud-1", doc_type='pagetext', body=doc)
+		print(res['result'])
+		consumer.acknowledge(msg)
+	
+
+	# words = stem_words(filter_stop_sequences(get_tokes(r.text)))
+	# text = ' '.join(words)
+	# doc = {
+ #    	'text': text,
+ #    	'timestamp': datetime.now(),
+	# }
+	# res = es.index(index="word-cloud-1", doc_type='pagetext', id=1, body=doc)
+	# print(res['result'])
+
+	# res = es.termvectors(index='word-cloud-1',doc_type='pagetext',fields='text', id=1)
+	# print(res['term_vectors']['text']['terms'])
+
